@@ -1,6 +1,180 @@
 git clone https://github.com/rlee0927tw-crypto/psychology-test.git
 cd psychology-test
-# 
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>Stroop 注意力測試</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    #game, #result { display: none; }
+    .word {
+      font-size: 48px;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .btn {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+    }
+    #choices { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Stroop 注意力測試</h1>
+
+  <!-- 選擇難度 -->
+  <div id="menu">
+    <p>請選擇難度：</p>
+    <button class="btn" onclick="startGame('easy')">簡單</button>
+    <button class="btn" onclick="startGame('medium')">中等</button>
+    <button class="btn" onclick="startGame('hard')">困難</button>
+  </div>
+
+  <!-- 遊戲區 -->
+  <div id="game">
+    <p>剩餘題數：<span id="remaining"></span></p>
+    <p class="word" id="word"></p>
+    <div id="choices"></div>
+    <p>時間：<span id="time">0.0</span> 秒</p>
+    <p>錯誤數：<span id="errors">0</span></p>
+  </div>
+
+  <!-- 結果區 -->
+  <div id="result">
+    <h2>測試結束</h2>
+    <p>總時間：<span id="finalTime"></span> 秒</p>
+    <p>總錯誤：<span id="finalErrors"></span></p>
+    <p>分數（越高越好）：<span id="score"></span></p>
+    <button class="btn" onclick="downloadCSV()">下載結果檔案</button>
+    <button class="btn" onclick="location.reload()">再玩一次</button>
+  </div>
+
+  <script>
+    const colors = ["紅", "綠", "藍", "黃", "紫"];
+    const colorMap = {
+      "紅": "red",
+      "綠": "green",
+      "藍": "blue",
+      "黃": "orange",
+      "紫": "purple"
+    };
+
+    let totalQuestions = 0;
+    let questionsLeft = 0;
+    let errors = 0;
+    let startTime;
+    let timerInterval;
+    let results = [];
+
+    function startGame(level) {
+      document.getElementById("menu").style.display = "none";
+      document.getElementById("game").style.display = "block";
+
+      // 難度設定：題目數
+      if (level === "easy") totalQuestions = 10;
+      if (level === "medium") totalQuestions = 20;
+      if (level === "hard") totalQuestions = 30;
+
+      questionsLeft = totalQuestions;
+      errors = 0;
+      results = [];
+
+      document.getElementById("errors").innerText = errors;
+      document.getElementById("remaining").innerText = questionsLeft;
+
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 100);
+
+      nextQuestion();
+    }
+
+    function updateTimer() {
+      const elapsed = (Date.now() - startTime) / 1000;
+      document.getElementById("time").innerText = elapsed.toFixed(1);
+    }
+
+    function nextQuestion() {
+      if (questionsLeft <= 0) {
+        endGame();
+        return;
+      }
+
+      const word = colors[Math.floor(Math.random() * colors.length)];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      const wordElem = document.getElementById("word");
+      wordElem.innerText = word;
+      wordElem.style.color = colorMap[color];
+
+      const choicesDiv = document.getElementById("choices");
+      choicesDiv.innerHTML = "";
+
+      colors.forEach(c => {
+        const btn = document.createElement("button");
+        btn.innerText = c;
+        btn.className = "btn";
+        btn.onclick = () => checkAnswer(c, color);
+        choicesDiv.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(answer, correctColor) {
+      if (answer !== correctColor) {
+        errors++;
+        document.getElementById("errors").innerText = errors;
+      }
+      questionsLeft--;
+      document.getElementById("remaining").innerText = questionsLeft;
+      nextQuestion();
+    }
+
+    function endGame() {
+      clearInterval(timerInterval);
+
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      const score = Math.max(0, (totalQuestions * 100 - errors * 50) - totalTime * 10);
+
+      document.getElementById("game").style.display = "none";
+      document.getElementById("result").style.display = "block";
+      document.getElementById("finalTime").innerText = totalTime;
+      document.getElementById("finalErrors").innerText = errors;
+      document.getElementById("score").innerText = Math.round(score);
+
+      results.push({
+        time: totalTime,
+        errors: errors,
+        score: Math.round(score)
+      });
+    }
+
+    function downloadCSV() {
+      let csv = "時間,錯誤數,分數\n";
+      results.forEach(r => {
+        csv += `${r.time},${r.errors},${r.score}\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "stroop_result.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
+
 git add .
 git commit -m "upload psychology test website"
 git push origin main
