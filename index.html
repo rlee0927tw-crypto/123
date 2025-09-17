@@ -1,180 +1,172 @@
-git clone https://github.com/rlee0927tw-crypto/psychology-test.git
-cd psychology-test
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <title>Stroop 注意力測試</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 30px;
-    }
-    #game, #result { display: none; }
-    .word {
-      font-size: 48px;
-      font-weight: bold;
-      margin: 20px 0;
-    }
-    .btn {
-      margin: 5px;
-      padding: 10px 20px;
-      font-size: 18px;
-      cursor: pointer;
-      border: none;
-      border-radius: 8px;
-    }
-    #choices { margin-top: 20px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stroop 中文測驗</title>
+<style>
+  body { font-family:"Microsoft JhengHei",sans-serif; text-align:center; background:#f5f5f5; }
+  h1 { font-size:3em; margin-top:20px; }
+  .setup,.game,.result { margin-top:40px; }
+  .color-word { font-size:80px; margin:40px 0; font-weight:bold; min-height:100px; }
+  .btn { display:inline-block; font-size:32px; padding:20px 40px; margin:15px; border-radius:12px; border:none; cursor:pointer; color:#fff; }
+  .btn-red{background:#e74c3c;} .btn-blue{background:#3498db;}
+  .btn-green{background:#2ecc71;} .btn-yellow{background:#f1c40f;color:#000;}
+  .btn-purple{background:#9b59b6;} .btn-black{background:#2c3e50;}
+  .btn-gray{background:#7f8c8d;} .btn-white{background:#ecf0f1;color:#000;}
+  .hidden{display:none;}
+  #feedback{font-size:28px;margin-top:20px;color:#2c3e50;min-height:40px;}
+</style>
 </head>
 <body>
-  <h1>Stroop 注意力測試</h1>
 
-  <!-- 選擇難度 -->
-  <div id="menu">
-    <p>請選擇難度：</p>
-    <button class="btn" onclick="startGame('easy')">簡單</button>
-    <button class="btn" onclick="startGame('medium')">中等</button>
-    <button class="btn" onclick="startGame('hard')">困難</button>
-  </div>
+<h1>Stroop 中文測驗</h1>
 
-  <!-- 遊戲區 -->
-  <div id="game">
-    <p>剩餘題數：<span id="remaining"></span></p>
-    <p class="word" id="word"></p>
-    <div id="choices"></div>
-    <p>時間：<span id="time">0.0</span> 秒</p>
-    <p>錯誤數：<span id="errors">0</span></p>
-  </div>
+<div class="setup">
+  <p>姓名：<input type="text" id="playerName"></p>
+  <p>
+    選擇難度：
+    <select id="difficulty">
+      <option value="easy">簡單</option>
+      <option value="medium">中等</option>
+      <option value="hard">困難</option>
+    </select>
+  </p>
+  <button onclick="startGame()">開始測驗</button>
+</div>
 
-  <!-- 結果區 -->
-  <div id="result">
-    <h2>測試結束</h2>
-    <p>總時間：<span id="finalTime"></span> 秒</p>
-    <p>總錯誤：<span id="finalErrors"></span></p>
-    <p>分數（越高越好）：<span id="score"></span></p>
-    <button class="btn" onclick="downloadCSV()">下載結果檔案</button>
-    <button class="btn" onclick="location.reload()">再玩一次</button>
-  </div>
+<div class="game hidden">
+  <div id="colorWord" class="color-word"></div>
+  <div id="buttons"></div>
+  <p>題目：<span id="progress">0</span>/<span id="total">0</span></p>
+  <p id="feedback"></p>
+</div>
 
-  <script>
-    const colors = ["紅", "綠", "藍", "黃", "紫"];
-    const colorMap = {
-      "紅": "red",
-      "綠": "green",
-      "藍": "blue",
-      "黃": "orange",
-      "紫": "purple"
-    };
+<div class="result hidden">
+  <h2>測驗結束</h2>
+  <p>姓名：<span id="rName"></span></p>
+  <p>日期：<span id="rDate"></span></p>
+  <p>正確：<span id="rCorrect"></span> / 錯誤：<span id="rWrong"></span></p>
+  <p>平均反應時間：<span id="rAvgTime"></span> 秒</p>
+  <p>總分：<span id="rScore"></span></p>
+  <button onclick="downloadResult()">下載結果 (CSV)</button>
+</div>
 
-    let totalQuestions = 0;
-    let questionsLeft = 0;
-    let errors = 0;
-    let startTime;
-    let timerInterval;
-    let results = [];
+<script>
+const colorOptions = {
+  easy: ["紅","藍"],
+  medium: ["紅","藍","綠","黃"],
+  hard: ["紅","藍","綠","黃","紫","黑"]
+};
+const colorMap = {
+  "紅":"red","藍":"blue","綠":"green",
+  "黃":"yellow","紫":"purple","黑":"black",
+  "灰":"gray","白":"white"
+};
 
-    function startGame(level) {
-      document.getElementById("menu").style.display = "none";
-      document.getElementById("game").style.display = "block";
+let currentColor;
+let questionCount,totalQuestions;
+let correct,wrong;
+let startTime,times=[];
+let playerName,difficulty;
 
-      // 難度設定：題目數
-      if (level === "easy") totalQuestions = 10;
-      if (level === "medium") totalQuestions = 20;
-      if (level === "hard") totalQuestions = 30;
+function startGame(){
+  playerName=document.getElementById("playerName").value||"未命名";
+  difficulty=document.getElementById("difficulty").value;
 
-      questionsLeft = totalQuestions;
-      errors = 0;
-      results = [];
+  if(difficulty==="easy") totalQuestions=10;
+  else if(difficulty==="medium") totalQuestions=20;
+  else totalQuestions=40;
 
-      document.getElementById("errors").innerText = errors;
-      document.getElementById("remaining").innerText = questionsLeft;
+  correct=0;wrong=0;times=[];questionCount=0;
 
-      startTime = Date.now();
-      timerInterval = setInterval(updateTimer, 100);
+  document.querySelector(".setup").classList.add("hidden");
+  document.querySelector(".game").classList.remove("hidden");
+  document.getElementById("total").textContent=totalQuestions;
 
-      nextQuestion();
-    }
+  nextQuestion();
+}
 
-    function updateTimer() {
-      const elapsed = (Date.now() - startTime) / 1000;
-      document.getElementById("time").innerText = elapsed.toFixed(1);
-    }
+function nextQuestion(){
+  if(questionCount>=totalQuestions){endGame();return;}
 
-    function nextQuestion() {
-      if (questionsLeft <= 0) {
-        endGame();
-        return;
-      }
+  const colors=colorOptions[difficulty];
+  let text=colors[Math.floor(Math.random()*colors.length)];
+  let color=colors[Math.floor(Math.random()*colors.length)];
 
-      const word = colors[Math.floor(Math.random() * colors.length)];
-      const color = colors[Math.floor(Math.random() * colors.length)];
+  currentColor=colorMap[color];
 
-      const wordElem = document.getElementById("word");
-      wordElem.innerText = word;
-      wordElem.style.color = colorMap[color];
+  if(difficulty==="hard" && Math.random()<0.3){text="";} // 隱藏文字
 
-      const choicesDiv = document.getElementById("choices");
-      choicesDiv.innerHTML = "";
+  const wordDiv=document.getElementById("colorWord");
+  wordDiv.textContent=text || "●";
+  wordDiv.style.color=currentColor;
 
-      colors.forEach(c => {
-        const btn = document.createElement("button");
-        btn.innerText = c;
-        btn.className = "btn";
-        btn.onclick = () => checkAnswer(c, color);
-        choicesDiv.appendChild(btn);
-      });
-    }
+  const btnDiv=document.getElementById("buttons");
+  btnDiv.innerHTML="";
+  let btnColors=[...colors];
 
-    function checkAnswer(answer, correctColor) {
-      if (answer !== correctColor) {
-        errors++;
-        document.getElementById("errors").innerText = errors;
-      }
-      questionsLeft--;
-      document.getElementById("remaining").innerText = questionsLeft;
-      nextQuestion();
-    }
+  if(difficulty==="hard"){
+    if(Math.random()<0.5) btnColors.push("灰");
+    if(Math.random()<0.5) btnColors.push("白");
+  }
 
-    function endGame() {
-      clearInterval(timerInterval);
+  btnColors.forEach(c=>{
+    let btn=document.createElement("button");
+    btn.textContent=c;
+    btn.className="btn btn-"+colorMap[c];
+    btn.onclick=()=>checkAnswer(c);
+    btnDiv.appendChild(btn);
+  });
 
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      const score = Math.max(0, (totalQuestions * 100 - errors * 50) - totalTime * 10);
+  questionCount++;
+  document.getElementById("progress").textContent=questionCount;
+  document.getElementById("feedback").textContent="";
+  startTime=new Date();
+}
 
-      document.getElementById("game").style.display = "none";
-      document.getElementById("result").style.display = "block";
-      document.getElementById("finalTime").innerText = totalTime;
-      document.getElementById("finalErrors").innerText = errors;
-      document.getElementById("score").innerText = Math.round(score);
+function checkAnswer(choice){
+  let rt=(new Date()-startTime)/1000;
+  times.push(rt);
 
-      results.push({
-        time: totalTime,
-        errors: errors,
-        score: Math.round(score)
-      });
-    }
+  let isCorrect=colorMap[choice]===currentColor;
+  let feedback=`反應時間：${rt.toFixed(2)} 秒`;
 
-    function downloadCSV() {
-      let csv = "時間,錯誤數,分數\n";
-      results.forEach(r => {
-        csv += `${r.time},${r.errors},${r.score}\n`;
-      });
+  if(difficulty==="hard" && rt>2){wrong++;feedback+="（超時）";}
+  else if(isCorrect){correct++;feedback+=" ✅";}
+  else{wrong++;feedback+=" ❌";}
 
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
+  document.getElementById("feedback").textContent=feedback;
+  setTimeout(nextQuestion,800);
+}
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "stroop_result.csv";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  </script>
+function endGame(){
+  document.querySelector(".game").classList.add("hidden");
+  document.querySelector(".result").classList.remove("hidden");
+
+  let avgTime=times.reduce((a,b)=>a+b,0)/times.length;
+  let score=Math.round((correct/totalQuestions*100)-avgTime*5);
+
+  document.getElementById("rName").textContent=playerName;
+  document.getElementById("rDate").textContent=new Date().toLocaleString();
+  document.getElementById("rCorrect").textContent=correct;
+  document.getElementById("rWrong").textContent=wrong;
+  document.getElementById("rAvgTime").textContent=avgTime.toFixed(2);
+  document.getElementById("rScore").textContent=score;
+}
+
+function downloadResult(){
+  let avgTime=times.reduce((a,b)=>a+b,0)/times.length;
+  let score=Math.round((correct/totalQuestions*100)-avgTime*5);
+
+  let csv="姓名,日期,正確,錯誤,平均反應時間(秒),總分\n";
+  csv+=`${playerName},${new Date().toLocaleString()},${correct},${wrong},${avgTime.toFixed(2)},${score}\n`;
+
+  let blob=new Blob([csv],{type:"text/csv"});
+  let url=URL.createObjectURL(blob);
+  let a=document.createElement("a");
+  a.href=url;a.download="stroop_result.csv";a.click();
+}
+</script>
 </body>
 </html>
-
-git add .
-git commit -m "upload psychology test website"
-git push origin main
